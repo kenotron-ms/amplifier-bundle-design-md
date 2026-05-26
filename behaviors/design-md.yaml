@@ -1,0 +1,16 @@
+bundle:
+  name: design-md-behavior
+  version: 1.0.0
+  description: >
+    DESIGN.md format agents for generating, importing, and validating
+    portable Google DESIGN.md design system files on top of design-intelligence.
+
+agents:
+  include:
+    - design-md:design-md-generator
+    - design-md:design-md-importer
+    - design-md:design-md-reviewer
+
+context:
+  include:
+    - design-md:context/design-md-awareness.md

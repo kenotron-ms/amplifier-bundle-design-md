@@ -1,0 +1,400 @@
+# =============================================================================
+# DESIGN-MD-EXPORT RECIPE
+# =============================================================================
+#
+# Orchestrates the full design-intelligence → DESIGN.md pipeline:
+#   1. Read brief
+#   2. Establish aesthetic direction (art-director)
+#   3. Architect the token system (design-system-architect)
+#   4. Design key components (component-designer)
+#   5. Generate the DESIGN.md file (design-md-generator)
+#   6. Validate with lint (design-md-reviewer)
+#
+# Prerequisites:
+#   - design-intelligence bundle composed in
+#   - design-md bundle composed in
+#   - Node.js + npx available for lint step (or lint step runs structural review only)
+#
+# Usage:
+#   recipes(
+#     operation="execute",
+#     recipe_path="design-md:recipes/design-md-export",
+#     context={
+#       "brief_path": "docs/project-brief.md",
+#       "output_path": "DESIGN.md",
+#       "project_name": "Heritage"
+#     }
+#   )
+#
+# =============================================================================
+
+name: "design-md-export"
+description: "Generate a validated DESIGN.md from a project brief using design-intelligence agents"
+version: "1.0.0"
+tags: ["design", "design-md", "export", "design-intelligence"]
+
+context:
+  brief_path: ""           # Required: path to project brief (markdown or text file)
+  output_path: "DESIGN.md" # Where to write the DESIGN.md (default: project root)
+  project_name: ""         # Name of the design system (used in DESIGN.md name: field)
+
+steps:
+  # ===========================================================================
+  # Step 1: Read and Structure the Brief
+  # Parse the project brief into a structured context that downstream agents
+  # can consume. Extracts: product description, target audience, aesthetic
+  # references, constraints, and any existing design decisions to honor.
+  # ===========================================================================
+  - id: "read-brief"
+    agent: "foundation:explorer"
+    timeout: 120
+    model_role: fast
+    parse_json: true
+    output: "structured_brief"
+    prompt: |
+      Read and structure the project brief for a design system.
+
+      ## Input
+      Brief file: {{brief_path}}
+      Project name: {{project_name}}
+
+      Read the file using read_file and extract the following. If information
+      is not present in the brief, use null for that field.
+
+      Return a JSON object with this exact schema:
+      {
+        "project_name": "<name or {{project_name}} if not in brief>",
+        "product_description": "<1-2 sentence description of what the product is>",
+        "target_audience": "<who uses this product>",
+        "aesthetic_references": ["<reference 1>", "<reference 2>"],
+        "mood_keywords": ["<keyword 1>", "<keyword 2>"],
+        "color_constraints": "<any stated color requirements or null>",
+        "typography_constraints": "<any stated font requirements or null>",
+        "existing_brand": "<description of any existing brand guidelines or null>",
+        "tech_stack": "<frontend framework/CSS approach or null>",
+        "key_components": ["<component 1>", "<component 2>"],
+        "explicit_dont": ["<stated anti-patterns or style to avoid>"],
+        "notes": "<any other design-relevant information>"
+      }
+
+      Use only information from the brief. Do not invent information.
+
+  # ===========================================================================
+  # Step 2: Establish Aesthetic Direction
+  # The art-director reads the structured brief and produces a comprehensive
+  # aesthetic direction document — the "why" behind all visual decisions.
+  # This feeds into the Overview section of the DESIGN.md and guides the
+  # token architect in the next step.
+  # ===========================================================================
+  - id: "establish-aesthetic"
+    agent: "design-intelligence:art-director"
+    timeout: 600
+    model_role: creative
+    output: "aesthetic_direction"
+    prompt: |
+      You are the art director for a new design system. Establish the complete
+      aesthetic direction based on this structured brief.
+
+      ## Project Brief (structured)
+      {{structured_brief}}
+
+      ## Your Task
+
+      Produce a comprehensive aesthetic direction document that will:
+      1. Guide the design-system-architect in defining tokens that feel intentional
+      2. Become the `## Overview` section of the DESIGN.md file
+
+      Your output must cover ALL of the following:
+
+      ### Aesthetic Concept
+      The core visual metaphor or philosophy in 2-3 punchy sentences.
+      What does this UI feel like? What does it evoke?
+
+      ### Visual References
+      2-4 specific references (products, materials, movements, spaces) that
+      capture the intended aesthetic. Be specific — not "clean" but "National
+      Geographic magazine layout" or "1960s Swiss typography poster."
+
+      ### Brand Personality Keywords
+      5-8 adjectives that describe the visual character. These guide every
+      subsequent decision.
+
+      ### Color Direction
+      What emotional range should colors occupy? Warm or cool? Saturated or muted?
+      Monochromatic or accent-driven? High contrast or gentle? Note any specific
+      color families that feel right or wrong.
+
+      ### Typography Direction
+      What personality should the type have? Authoritative, friendly, technical,
+      expressive? What font category fits (geometric sans, humanist, serif, mono)?
+      Any specific references to font families that embody the aesthetic?
+
+      ### Shape and Space Direction
+      Tight or generous? Sharp or rounded? Dense or airy? What does the spacing
+      philosophy say about the product?
+
+      ### What to Avoid
+      Specific aesthetic choices that would conflict with this direction.
+
+      Write this as a design document, not a bullet list dump. 400-600 words.
+
+  # ===========================================================================
+  # Step 3: Architect the Token System
+  # The design-system-architect takes the aesthetic direction and produces
+  # a complete, machine-ready token system: colors, typography, spacing,
+  # border radius. This is the normative data for the DESIGN.md front matter.
+  # ===========================================================================
+  - id: "architect-tokens"
+    agent: "design-intelligence:design-system-architect"
+    timeout: 600
+    model_role: creative
+    parse_json: true
+    output: "token_system"
+    prompt: |
+      You are the design system architect. Based on the aesthetic direction below,
+      produce a complete, production-ready token system for this design system.
+
+      ## Aesthetic Direction
+      {{aesthetic_direction}}
+
+      ## Original Brief
+      {{structured_brief}}
+
+      ## Your Task
+
+      Produce a JSON token system with this exact structure. All values must be
+      concrete (no placeholders). Colors must be 6-digit hex. Dimensions must
+      include units (px, rem, em).
+
+      {
+        "colors": {
+          "primary": "#XXXXXX",
+          "secondary": "#XXXXXX",
+          "tertiary": "#XXXXXX",
+          "neutral": "#XXXXXX",
+          "surface": "#XXXXXX",
+          "on-primary": "#XXXXXX",
+          "on-tertiary": "#XXXXXX",
+          "surface-variant": "#XXXXXX",
+          "on-surface-variant": "#XXXXXX"
+        },
+        "typography": {
+          "h1": { "fontFamily": "...", "fontSize": "...", "fontWeight": ..., "lineHeight": ..., "letterSpacing": "..." },
+          "h2": { "fontFamily": "...", "fontSize": "...", "fontWeight": ... },
+          "h3": { "fontFamily": "...", "fontSize": "...", "fontWeight": ... },
+          "body-md": { "fontFamily": "...", "fontSize": "...", "lineHeight": ... },
+          "body-sm": { "fontFamily": "...", "fontSize": "..." },
+          "label": { "fontFamily": "...", "fontSize": "...", "fontWeight": ... },
+          "caption": { "fontFamily": "...", "fontSize": "..." }
+        },
+        "spacing": {
+          "xs": "4px", "sm": "8px", "md": "16px", "lg": "32px", "xl": "64px"
+        },
+        "rounded": {
+          "none": "0px", "sm": "4px", "md": "8px", "lg": "16px", "full": "9999px"
+        },
+        "rationale": {
+          "color": "<1-2 sentences on the color system choices>",
+          "typography": "<1-2 sentences on type choices>",
+          "spacing": "<1 sentence on spacing approach>",
+          "elevation": "<1-2 sentences describing depth/shadow strategy — this becomes prose, not tokens>"
+        }
+      }
+
+      ## Rules
+      - All colors must be 6-digit hex strings in quotes: "#1A1C1E"
+      - Typography fontWeight must be a number (400, 500, 600, 700) not a string
+      - Spacing values must follow an 8px grid (4, 8, 16, 32, 64, 128)
+      - Rounded values should tell a consistent story (sharp, medium, soft, or pill)
+      - Choose font families that are available on Google Fonts or system fonts
+      - The `on-*` colors must have ≥4.5:1 contrast ratio against their base color
+      - The `rationale` fields become prose sections — write them as design rationale,
+        not technical specifications
+
+  # ===========================================================================
+  # Step 4: Design Key Components
+  # The component-designer takes the token system and designs the visual
+  # specification for the 5-8 most important components in this product.
+  # This produces the `components:` frontmatter for the DESIGN.md.
+  # ===========================================================================
+  - id: "design-components"
+    agent: "design-intelligence:component-designer"
+    timeout: 600
+    model_role: creative
+    parse_json: true
+    output: "component_specs"
+    prompt: |
+      You are the component designer. Based on the token system and brief,
+      design the visual specification for this product's key UI components.
+
+      ## Token System
+      {{token_system}}
+
+      ## Product Brief
+      {{structured_brief}}
+
+      ## Aesthetic Direction (for reference)
+      {{aesthetic_direction}}
+
+      ## Your Task
+
+      Produce a JSON component specification using ONLY token references (not hardcoded
+      hex values). All references must use the `{path.to.token}` format and must resolve
+      against the token system above.
+
+      Design components appropriate for this product type. Always include:
+      - button-primary + button-primary-hover + button-primary-disabled
+      - card
+      - input + input-focus + input-error
+
+      Add product-appropriate components from the key_components list in the brief.
+
+      Return JSON with this structure:
+      {
+        "components": {
+          "button-primary": {
+            "backgroundColor": "{colors.tertiary}",
+            "textColor": "{colors.on-tertiary}",
+            "rounded": "{rounded.sm}",
+            "padding": "12px",
+            "typography": "{typography.label}"
+          },
+          "button-primary-hover": {
+            "backgroundColor": "<slightly darker hex than tertiary>"
+          },
+          "button-primary-disabled": {
+            "backgroundColor": "{colors.surface-variant}",
+            "textColor": "{colors.on-surface-variant}"
+          },
+          "card": {
+            "backgroundColor": "{colors.surface}",
+            "rounded": "{rounded.md}",
+            "padding": "{spacing.md}"
+          },
+          "input": {
+            "backgroundColor": "{colors.surface}",
+            "textColor": "{colors.primary}",
+            "rounded": "{rounded.sm}",
+            "padding": "{spacing.sm}"
+          },
+          "input-focus": {
+            "backgroundColor": "{colors.surface}",
+            "textColor": "{colors.primary}"
+          },
+          "input-error": {
+            "textColor": "<error red hex>"
+          }
+        },
+        "rationale": "<2-3 sentences on component design philosophy — interaction patterns, state expression>"
+      }
+
+      ## Rules
+      - Use `{token.path}` references, not hardcoded hex values (exception: hover/error states that need adjusted values)
+      - Valid component properties: backgroundColor, textColor, typography, rounded, padding, size, height, width
+      - Variant states (hover, disabled, focus, error) are separate entries with the state suffix
+      - All `{token.references}` must resolve in the token system — no broken refs
+      - Do not add properties outside the valid list
+
+  # ===========================================================================
+  # Step 5: Generate the DESIGN.md File
+  # The design-md-generator takes all outputs from previous steps and
+  # serializes them into a spec-compliant DESIGN.md file with YAML frontmatter
+  # and all 8 prose sections. Writes the file to disk.
+  # ===========================================================================
+  - id: "generate-design-md"
+    agent: "design-md:design-md-generator"
+    timeout: 600
+    model_role: coding
+    output: "generation_report"
+    prompt: |
+      Generate a complete, spec-compliant DESIGN.md file from the design session outputs below.
+
+      ## Token System
+      {{token_system}}
+
+      ## Component Specifications
+      {{component_specs}}
+
+      ## Aesthetic Direction
+      {{aesthetic_direction}}
+
+      ## Output Path
+      Write the file to: {{output_path}}
+
+      ## Generation Instructions
+
+      Assemble the DESIGN.md with:
+
+      **YAML Front Matter:**
+      - version: "alpha"
+      - name: Use the project_name from the token_system or {{project_name}}
+      - colors: from token_system.colors
+      - typography: from token_system.typography
+      - spacing: from token_system.spacing
+      - rounded: from token_system.rounded
+      - components: from component_specs.components
+
+      **Prose Sections (in canonical order):**
+      1. `## Overview` — Write from aesthetic_direction (concept, metaphor, brand personality)
+      2. `## Colors` — From token_system.rationale.color + describe each color's role
+      3. `## Typography` — From token_system.rationale.typography + type personality
+      4. `## Layout` — From token_system.rationale.spacing + spatial philosophy
+      5. `## Elevation & Depth` — From token_system.rationale.elevation
+      6. `## Shapes` — From token_system.rounded values — what the radius choices communicate
+      7. `## Components` — From component_specs.rationale + component vocabulary overview
+      8. `## Do's and Don'ts` — Extract from aesthetic_direction "What to Avoid" + core rules
+
+      **Before writing**, verify:
+      - All {token.references} in components resolve to defined tokens
+      - Section headings appear in canonical order
+      - No duplicate section headings
+      - All hex values are quoted strings
+
+      Write the file. Report:
+      1. Confirmation of write with the output path
+      2. Token summary (counts per section)
+      3. Any warnings you noticed
+
+  # ===========================================================================
+  # Step 6: Validate with Lint
+  # The design-md-reviewer validates the generated file using the DESIGN.md
+  # spec lint rules. Runs structural pre-validation and the official CLI
+  # if available. Produces a structured findings report.
+  # ===========================================================================
+  - id: "validate-design-md"
+    agent: "design-md:design-md-reviewer"
+    timeout: 300
+    model_role: coding
+    output: "validation_report"
+    prompt: |
+      Validate the DESIGN.md file that was just generated.
+
+      ## File to Validate
+      Path: {{output_path}}
+
+      ## Generation Report (for context)
+      {{generation_report}}
+
+      ## Your Task
+
+      1. Read the file at {{output_path}} using tool-filesystem
+      2. Run structural pre-validation (all 8 lint rules)
+      3. Attempt to run `npx @google/design.md lint --format json {{output_path}}`
+         via bash for authoritative results (if Node.js unavailable,
+         note this and rely on structural analysis)
+      4. Produce a complete validation report:
+         - Summary: errors, warnings, info counts
+         - Findings: each issue with severity, rule, path, message, and fix recommendation
+         - Overall status: PASS (0 errors) or FAIL (errors present)
+         - Suggested next steps if issues found
+
+      If errors are found (broken refs, structural issues):
+      - Clearly identify what needs to be fixed
+      - Specify which agent should address each issue
+      - Note: broken refs → design-md:design-md-generator can re-generate
+      - Note: contrast issues → design-intelligence:design-system-architect can adjust colors
+
+      Conclude with one of:
+      - ✅ DESIGN.md is valid and ready to use
+      - ⚠️ DESIGN.md has warnings but is structurally valid
+      - ❌ DESIGN.md has errors that must be fixed before use
