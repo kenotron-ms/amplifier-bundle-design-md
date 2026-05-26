@@ -101,7 +101,7 @@ Add this bundle to your Amplifier configuration:
 
 ```yaml
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-design-md@main
+  - bundle: git+https://github.com/kenotron-ms/amplifier-bundle-design-md@main
 ```
 
 This automatically pulls in the design-intelligence bundle as an upstream dependency. You do not need to install design-intelligence separately -- this bundle includes it.
