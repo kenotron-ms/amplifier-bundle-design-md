@@ -12,6 +12,8 @@ This Amplifier bundle connects two projects that approach design from opposite e
 - [How It Works](#how-it-works)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+  - [Path A — Batteries included](#path-a--batteries-included-fresh-setup)
+  - [Path B — Behavior-only (already have design-intelligence)](#path-b--behavior-only-you-already-have-design-intelligence)
 - [Quick Start: Idea to DESIGN.md in One Command](#quick-start-idea-to-designmd-in-one-command)
 - [The Full Interactive Workflow](#the-full-interactive-workflow)
   - [Phase 1: Starting From Nothing](#phase-1-starting-from-nothing)
@@ -97,14 +99,74 @@ npx @google/design.md lint DESIGN.md
 
 ## Installation
 
-Add this bundle to your Amplifier configuration:
+There are two install paths. Choose based on what you already have.
+
+---
+
+### Path A — Batteries included (fresh setup)
+
+If you do not yet have `design-intelligence` or `foundation` configured, include the full standalone bundle. It pulls everything in:
 
 ```yaml
+# In your root bundle.md or amplifier.yaml
 includes:
   - bundle: git+https://github.com/kenotron-ms/amplifier-bundle-design-md@main
 ```
 
-This automatically pulls in the design-intelligence bundle as an upstream dependency. You do not need to install design-intelligence separately -- this bundle includes it.
+This loads the full dependency chain:
+- `amplifier-foundation` — tools, delegation, multi-agent infrastructure
+- `amplifier-bundle-design-intelligence` — 7 design agents + philosophy stack
+- `design-md behavior` — 3 new agents + 34-line awareness file
+
+**Use this if:** you are setting up a new Amplifier configuration from scratch and want everything to just work.
+
+---
+
+### Path B — Behavior-only (you already have design-intelligence)
+
+If your bundle already includes `design-intelligence` (and foundation through it), install only the behavior partial. This adds zero transitive dependencies — the root session gets only the 34-line awareness file and the 3 agent registrations.
+
+**Step 1:** Register the bundle in your Amplifier config so it gets a local name:
+
+```yaml
+# In your amplifier.yaml or registry config
+bundles:
+  - name: design-md
+    source: git+https://github.com/kenotron-ms/amplifier-bundle-design-md@main
+```
+
+**Step 2:** In your root bundle, include only the behavior partial (NOT the full bundle):
+
+```yaml
+# In your root bundle.md
+includes:
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-design-intelligence@main
+  # ... your other existing includes ...
+  - bundle: design-md:behaviors/design-md   # ← only this, not the full bundle
+```
+
+**What this adds to your root session:**
+```
+design-md-awareness.md   34 lines  (~400 tokens)  routing table for the 3 new agents
+3 agent descriptions     ~50 lines  in the agent registry only
+─────────────────────────────────────────────────────────
+Total root-session cost: ~550 tokens
+```
+
+Foundation, DI philosophy files, and DI agent context are untouched — whatever you had configured remains exactly as-is.
+
+**Use this if:** you already have `design-intelligence` in your bundle and want to add DESIGN.md support without touching your existing setup.
+
+---
+
+### Which path should I use?
+
+| Situation | Use |
+|-----------|-----|
+| Starting from scratch, no existing design bundle | **Path A** |
+| Already have design-intelligence configured | **Path B** |
+| Want explicit control over what loads | **Path B** |
+| Using this bundle in a shared/team config | **Path B** (less surprising) |
 
 ---
 
@@ -472,10 +534,24 @@ When you load this bundle, you get all 7 design-intelligence agents plus the 3 n
 
 The full DESIGN.md specification is 390 lines. It is NOT loaded into root sessions. Instead:
 
-- **Root sessions** get a 34-line awareness file (`context/design-md-awareness.md`) that says "these capabilities exist, delegate to these agents when triggered"
-- **Agent sessions** load the full spec via `@mention` reference (`@design-md:context/design-md-spec.md`) only when an agent spawns
+- **Root sessions** get only a 34-line awareness file (`context/design-md-awareness.md`) — routing table saying "these capabilities exist, delegate to these agents when triggered"
+- **Agent sub-sessions** load the full spec via `@mention` (`@design-md:context/design-md-spec.md`) only when an agent is spawned
 
-This keeps root sessions lightweight while giving agents complete spec knowledge when they need it.
+Agent tools (`tool-filesystem`, `tool-search`, `tool-bash`) are declared at the agent level in each agent's frontmatter, not in the behavior YAML. They load only inside agent sub-sessions — zero cost to the root session.
+
+**Concrete root-session cost by install path:**
+
+| What loads | Path A (full bundle) | Path B (behavior-only) |
+|---|---|---|
+| Foundation context | ✅ yes | already have it |
+| DI philosophy stack (4 files) | ✅ yes | already have it |
+| 7 DI agent descriptions | ✅ yes | already have it |
+| `design-md-awareness.md` | 34 lines | 34 lines |
+| 3 design-md agent descriptions | ~50 lines | ~50 lines |
+| 390-line spec | ❌ not in root | ❌ not in root |
+| Agent bodies (generator, importer, reviewer) | ❌ not in root | ❌ not in root |
+
+Via Path B, this bundle adds approximately **550 tokens** to a root session that already has DI.
 
 ### Agent responsibilities
 

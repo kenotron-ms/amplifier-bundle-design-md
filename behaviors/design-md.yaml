@@ -2,8 +2,16 @@ bundle:
   name: design-md-behavior
   version: 1.0.0
   description: >
-    DESIGN.md format agents for generating, importing, and validating
-    portable Google DESIGN.md design system files on top of design-intelligence.
+    DESIGN.md format integration layer. Registers three agents that generate,
+    import, and validate Google DESIGN.md files on top of design-intelligence.
+
+    PEER DEPENDENCY: amplifier-bundle-design-intelligence must already be
+    composed in the bundle that includes this behavior. Use this partial when
+    you already have design-intelligence configured — it adds only the
+    DESIGN.md layer with zero transitive cost to foundation or
+    design-intelligence. If you need a self-contained batteries-included
+    install that pulls everything in automatically, include the full bundle.md
+    instead.
 
 agents:
   include:
